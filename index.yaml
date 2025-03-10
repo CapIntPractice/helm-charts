@@ -1,0 +1,136 @@
+apiVersion: v1
+entries:
+  app:
+  - apiVersion: v2
+    created: "2025-03-10T09:31:53.679783104Z"
+    description: A Helm chart for Kubernetes
+    digest: 16fe3194a0d4eb476cdfb35e3183f53a422089d8296fcad8d29970a182e08365
+    name: app
+    type: application
+    urls:
+    - https://github.com/CapIntPractice/helm-charts/releases/download/app-3.6.2/app-3.6.2.tgz
+    version: 3.6.2
+  dynakube:
+  - apiVersion: v2
+    created: "2025-03-10T09:31:53.890227466Z"
+    digest: 1c810c6b4892c19513a48d8567fdd203626cde276df885084cb65dce370c50a5
+    name: dynakube
+    urls:
+    - https://github.com/CapIntPractice/helm-charts/releases/download/dynakube-1.2.1/dynakube-1.2.1.tgz
+    version: 1.2.1
+  grafana:
+  - apiVersion: v2
+    created: "2025-03-10T09:31:54.106197921Z"
+    dependencies:
+    - name: grafana
+      repository: https://grafana.github.io/helm-charts
+      version: 8.5.1
+    digest: abd5903a47416e038c68f71a018e887bdc670b7a0c78fe55686210ab9d68685b
+    name: grafana
+    urls:
+    - https://github.com/CapIntPractice/helm-charts/releases/download/grafana-1.5.0/grafana-1.5.0.tgz
+    version: 1.5.0
+  imageswap:
+  - apiVersion: v2
+    created: "2025-03-10T09:31:54.296869674Z"
+    digest: 8b24a3e2a7dc8e6aeaf10e29bef149b3f2c362532a91d7ba81b8f35f03bc229a
+    name: imageswap
+    urls:
+    - https://github.com/CapIntPractice/helm-charts/releases/download/imageswap-1.0.0/imageswap-1.0.0.tgz
+    version: 1.0.0
+  kiali:
+  - apiVersion: v2
+    created: "2025-03-10T09:31:54.47897973Z"
+    digest: 4eeee47f3a03a773f1d9634255a6feba7ed4327d02da10e2e98bae6c9086f96f
+    name: kiali
+    urls:
+    - https://github.com/CapIntPractice/helm-charts/releases/download/kiali-1.0.0/kiali-1.0.0.tgz
+    version: 1.0.0
+  kong:
+  - apiVersion: v2
+    created: "2025-03-10T09:31:54.700828604Z"
+    dependencies:
+    - name: kong
+      repository: https://charts.konghq.com
+      version: 2.46.0
+    digest: f47969e4ed8b3ba7883c26301bd96fe6617e39c09aafb89e6b92770f048a0bd2
+    name: kong
+    urls:
+    - https://github.com/CapIntPractice/helm-charts/releases/download/kong-1.21.1/kong-1.21.1.tgz
+    version: 1.21.1
+  opentelemetry-collector:
+  - apiVersion: v2
+    appVersion: 0.114.0
+    created: "2025-03-10T09:31:54.954129181Z"
+    description: OpenTelemetry Collector Helm chart for Kubernetes
+    digest: 6c522febaadc9767d5d778710efb9d3430ecec0140ea353779f912787ae4ac94
+    home: https://opentelemetry.io/
+    icon: https://opentelemetry.io/img/logos/opentelemetry-logo-nav.png
+    maintainers:
+    - name: dmitryax
+    - name: jaronoff97
+    - name: TylerHelmuth
+    name: opentelemetry-collector
+    sources:
+    - https://github.com/open-telemetry/opentelemetry-collector
+    - https://github.com/open-telemetry/opentelemetry-collector-contrib
+    type: application
+    urls:
+    - https://github.com/CapIntPractice/helm-charts/releases/download/opentelemetry-collector-0.110.4/opentelemetry-collector-0.110.4.tgz
+    version: 0.110.4
+  rancher:
+  - apiVersion: v2
+    appVersion: v2.8.3
+    created: "2025-03-10T09:31:55.140325023Z"
+    description: Install Rancher Server to manage Kubernetes clusters across providers.
+    digest: 21733dcf4d1488cd5919c1d675782f4d7ba0e1819007ea56f342ead01b417072
+    home: https://rancher.com
+    icon: https://github.com/rancher/ui/blob/master/public/assets/images/logos/welcome-cow.svg
+    keywords:
+    - rancher
+    kubeVersion: < 1.29.0-0
+    maintainers:
+    - email: charts@rancher.com
+      name: Rancher Labs
+    name: rancher
+    sources:
+    - https://github.com/rancher/rancher
+    - https://github.com/rancher/server-chart
+    urls:
+    - https://github.com/CapIntPractice/helm-charts/releases/download/rancher-2.8.3/rancher-2.8.3.tgz
+    version: 2.8.3
+  sonarqube:
+  - apiVersion: v2
+    created: "2025-03-10T09:31:55.35540108Z"
+    dependencies:
+    - name: sonarqube
+      repository: https://SonarSource.github.io/helm-chart-sonarqube
+      version: 8.0.8+3946
+    digest: 7d1d36dfda6bec860e0939f896193b948cd53604e963fdf4b006e989b2b709be
+    name: sonarqube
+    urls:
+    - https://github.com/CapIntPractice/helm-charts/releases/download/sonarqube-1.4.0/sonarqube-1.4.0.tgz
+    version: 1.4.0
+  twistlock:
+  - apiVersion: v1
+    created: "2025-03-10T09:31:55.580365549Z"
+    description: Twistlock Defender Daemon Set Helm Chart
+    digest: 64153686e312be8367f2f4d6893c28c193947c48a3c78c5d55ffd25eb1f11d95
+    name: twistlock
+    urls:
+    - https://github.com/CapIntPractice/helm-charts/releases/download/twistlock-31.03.133/twistlock-31.03.133.tgz
+    version: 31.03.133
+  uptime-kuma:
+  - apiVersion: v2
+    created: "2025-03-10T09:31:55.811923693Z"
+    digest: f50a91104191cc2a85d4f004f85068f5d26292cac20f7a270d1093e05ac0ff6a
+    home: https://github.com/dirsigler/uptime-kuma-helm
+    icon: https://raw.githubusercontent.com/louislam/uptime-kuma/master/public/icon.png
+    name: uptime-kuma
+    sources:
+    - https://github.com/louislam/uptime-kuma
+    type: application
+    urls:
+    - https://github.com/CapIntPractice/helm-charts/releases/download/uptime-kuma-2.19.0/uptime-kuma-2.19.0.tgz
+    version: 2.19.0
+generated: "2025-03-10T09:31:55.811931368Z"
