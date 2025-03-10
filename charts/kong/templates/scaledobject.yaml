@@ -1,0 +1,26 @@
+{{ if .Values.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .Release.Name }}-{{ .Release.Namespace }}
+  annotations:
+    scaledobject.keda.sh/transfer-hpa-ownership: "true"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Release.Name }}-{{ .Release.Namespace }}
+  minReplicaCount: {{ .Values.keda.minReplicas }}
+  maxReplicaCount: {{ .Values.keda.maxReplicas }}
+  triggers:
+  {{- range $v:=.Values.keda.triggers }}
+  - type: {{ $v.type }}
+    {{- if $v.authenticationRef }}
+    authenticationRef:
+{{ toYaml $v.authenticationRef | indent 6}}
+    {{- end }}
+    metricType: {{ $v.metricType }}
+    metadata: 
+{{ toYaml $v.metadata | indent 6}}
+  {{- end }}
+{{ end }}

@@ -1,0 +1,484 @@
+apiVersion: v1
+stringData:
+  access.lua: |
+    local policies = require "kong.plugins.the-middleman.policies"
+
+    local _M = {}
+    local http = require "resty.http"
+    local json = require "cjson"
+
+    local str_gsub, str_upper, str_lower = string.gsub, string.upper, string.lower
+    local kong = kong
+    local error = error
+    local md5 = ngx.md5
+
+    local function capitalize(str)
+      return (str_gsub(str, '^%l', str_upper))
+    end
+
+    local function dasherize(str)
+      local new_str = str_gsub(str, '(%l)(%u)', '%1-%2')
+      new_str = str_gsub(new_str, '%W+', '-')
+      new_str = str_lower(new_str)
+      new_str = str_gsub(new_str, '[^-]+', capitalize)
+      return new_str
+    end
+
+    local function get_service_name(service)
+      local count = 0
+
+      for substring in service:gmatch("[^%.]+") do
+        count = count + 1
+        if count == 2 then
+          return substring
+        end
+      end
+      
+      return "_Not_found"
+    end
+
+    local function external_request(conf, version)
+      -- Check if the cache header must be added
+      if conf.cache_enabled then
+        -- Set Header
+        kong.service.request.set_header('X-Middleman-Cache-Status', 'MISS')
+
+        -- stream down the headers
+        if conf.streamdown_injected_headers then
+          kong.response.set_header('X-Middleman-Cache-Status', 'MISS')
+        end
+      end
+
+      local httpc = http.new()
+      httpc:set_timeouts(conf.connect_timeout, conf.send_timeout, conf.read_timeout)
+
+      local body = {}
+
+      if conf.forward_path then
+        body["path"] = kong.request.get_path()
+      end
+
+      if conf.forward_query then
+        body["query"] = kong.request.get_query()
+      end
+
+      if conf.forward_headers then
+        body["headers"] = kong.request.get_headers()
+      end
+
+      if conf.forward_body then
+        body["body"] = kong.request.get_body()
+      end
+
+      local response, err = httpc:request_uri(conf.url, {
+        method = conf.method,
+        path = conf.path,
+        body = json.encode(body),
+        headers = {
+          ["User-Agent"] = "the-middleman/" .. version,
+          ["Content-Type"] = "application/json",
+          ["X-Forwarded-Host"] = kong.request.get_host(),
+          ["X-Forwarded-Path"] = kong.request.get_path(),
+          ["X-Forwarded-Query"] = kong.request.get_raw_query(),
+          ["X-Forwarded-Path-Query"] = kong.request.get_path_with_query(),
+          ["X-Kong-Service"] = get_service_name(kong.router.get_service().name),
+        }
+      })
+
+      if err then
+        return error(err)
+      end
+
+      return { status = response.status, body = response.body, headers = response.headers }
+    end
+
+    local function inject_body_response_into_header(conf, response)
+      if not conf.inject_body_response_into_header then
+        return nil
+      end
+
+      local decoded_body = json.decode(response.body)
+      for key, value in pairs(decoded_body) do
+        if not value then goto continue end
+
+        local header_name = dasherize(conf.injected_header_prefix .. key)
+        local header_value = value
+
+        if type(header_value) == "table" then
+          header_value = json.encode(header_value)
+        end
+
+        kong.service.request.set_header(header_name, header_value)
+
+        -- stream down the headers
+        if conf.streamdown_injected_headers then
+          kong.response.set_header(header_name, header_value)
+        end
+
+        :: continue ::
+      end
+    end
+
+    function _M.execute(conf, version)
+      local response, err;
+
+      if conf.cache_enabled then
+        -- Set Header
+        kong.service.request.set_header('X-Middleman-Cache-Status', 'HIT')
+
+        -- stream down the headers
+        if conf.streamdown_injected_headers then
+          kong.response.set_header('X-Middleman-Cache-Status', 'HIT')
+        end
+
+        local cache_key = kong.request.get_header("host")
+
+        if conf.cache_based_on == "host-path" then
+          cache_key = cache_key .. kong.request.get_path()
+
+        elseif conf.cache_based_on == "host-path-query" then
+          cache_key = cache_key .. kong.request.get_path_with_query()
+
+        elseif conf.cache_based_on == "header" then
+          local cache_based_on_headers = conf.cache_based_on_headers .. ','
+
+          for cache_based_on_header in cache_based_on_headers:gmatch("(.-),") do
+            if kong.request.get_header(cache_based_on_header) then
+              cache_key = kong.request.get_header(cache_based_on_header)
+              break
+            end
+          end
+        end
+
+        local value, err = policies[conf.cache_policy].probe(conf, md5(cache_key))
+
+        if value then
+          response = value
+        else
+          response, err = external_request(conf, version)
+
+          local opts = { ttl = conf.cache_ttl }
+          local cached, err = policies[conf.cache_policy].set(conf, md5(cache_key), response, opts)
+        end
+
+        -- check if the cache must be invalidated
+        local should_invalidate_cache = false
+
+        for k,v in pairs(conf.cache_invalidate_when_streamup_path) do
+          if kong.request.get_path() == v then
+            should_invalidate_cache = true
+            break
+          end
+        end
+
+        if should_invalidate_cache then
+          policies[conf.cache_policy].invalidate(conf, md5(cache_key))
+
+          kong.cache:invalidate(md5(cache_key))
+        end
+      else
+        response, err = external_request(conf, version)
+      end
+
+      -- unexpected error
+      if err then
+        return error(err)
+      end
+
+      -- http error
+      if response.status >= 400 then
+        return kong.response.exit(response.status, response.body, response.headers)
+      end
+
+      -- inject the body response into the header
+      inject_body_response_into_header(conf, response)
+
+    end
+
+    return _M
+  handler.lua: |
+    local access = require "kong.plugins.the-middleman.access"
+    local TheMiddlemanHandler = {}
+
+    TheMiddlemanHandler.PRIORITY = 900
+    TheMiddlemanHandler.VERSION = "1.0.5"
+
+    function TheMiddlemanHandler:access(conf)
+      access.execute(conf, TheMiddlemanHandler.VERSION)
+    end
+
+    return TheMiddlemanHandler
+  init.lua: |
+    local reports = require "kong.reports"
+    local redis = require "resty.redis"
+    local cjson = require "cjson"
+    local fmt = string.format
+
+    local redis_prefix = 'kong:the-middleman:'
+
+    local function is_present(str)
+      return str and str ~= "" and str ~= null
+    end
+
+    local sock_opts = {}
+
+    local function get_redis_connection(conf)
+      local red = redis:new()
+      red:set_timeout(conf.redis_timeout)
+
+      sock_opts.ssl = conf.redis_ssl
+      sock_opts.ssl_verify = conf.redis_ssl_verify
+      sock_opts.server_name = conf.redis_server_name
+
+      -- use a special pool name only if redis_database is set to non-zero
+      -- otherwise use the default pool name host:port
+      if conf.redis_database ~= 0 then
+        sock_opts.pool = fmt( "%s:%d;%d",
+                              conf.redis_host,
+                              conf.redis_port,
+                              conf.redis_database)
+      end
+
+      local ok, err = red:connect(conf.redis_host, conf.redis_port,
+                                  sock_opts)
+      if not ok then
+        kong.log.err("failed to connect to Redis: ", err)
+        return nil, err
+      end
+
+      local times, err = red:get_reused_times()
+      if err then
+        kong.log.err("failed to get connect reused times: ", err)
+        return nil, err
+      end
+
+      if times == 0 then
+        if is_present(conf.redis_password) then
+          local ok, err
+          if is_present(conf.redis_username) then
+            ok, err = kong.vault.try(function(cfg)
+              return red:auth(cfg.redis_username, cfg.redis_password)
+            end, conf)
+          else
+            ok, err = kong.vault.try(function(cfg)
+              return red:auth(cfg.redis_password)
+            end, conf)
+          end
+          if not ok then
+            kong.log.err("failed to auth Redis: ", err)
+            return nil, err
+          end
+        end
+
+        if conf.redis_database ~= 0 then
+          -- Only call select first time, since we know the connection is shared
+          -- between instances that use the same redis database
+
+          local ok, err = red:select(conf.redis_database)
+          if not ok then
+            kong.log.err("failed to change Redis database: ", err)
+            return nil, err
+          end
+        end
+      end
+
+      return red
+    end
+
+    return {
+      ["local"] = {
+        set = function(conf, key, value, opts)
+          if type(key) ~= "string" then
+              error("key must be a string", 2)
+          end
+
+          local cacheCb = function(_value)
+            return _value;
+          end
+
+          local response, err = kong.cache:get(key, opts, cacheCb, value)
+
+          if err then
+            return nil, err
+          end
+
+          return response
+        end,
+        probe = function(conf, key)
+          if type(key) ~= "string" then
+              error("key must be a string", 2)
+          end
+
+          local ttl, err, response = kong.cache:probe(key)
+
+          if err then
+            return nil, err
+          end
+
+          return response
+        end,
+        invalidate = function(conf, key)
+          if type(key) ~= "string" then
+              error("key must be a string", 2)
+          end
+
+          local ok, err = kong.cache:invalidate(key)
+
+          if err then
+            return nil, err
+          end
+
+          return true
+        end
+      },
+      ["redis"] = {
+        set = function(conf, key, value, opts)
+          if type(key) ~= "string" then
+              error("key must be a string", 2)
+          end
+
+          local red, err = get_redis_connection(conf)
+          if not red then
+            return nil, err
+          end
+
+          reports.retrieve_redis_version(red)
+
+          -- the usage of redis command incr instead of get is to avoid race conditions in concurrent calls
+          local response, err = red:eval([[
+            local cache_key, cache_value, expiration = KEYS[1], ARGV[1], ARGV[2]
+            redis.call("set", cache_key, cache_value)
+            redis.call("expire", cache_key, expiration)
+            return true
+          ]], 1, redis_prefix .. key, cjson.encode(value), opts.ttl)
+
+          if err then
+            return nil, err
+          end
+
+          local ok, err = red:set_keepalive(10000, 100)
+          if not ok then
+            kong.log.err("failed to set Redis keepalive: ", err)
+          end
+
+          return response
+        end,
+        probe = function(conf, key)
+          if type(key) ~= "string" then
+              error("key must be a string", 2)
+          end
+
+          local red, err = get_redis_connection(conf)
+          if not red then
+            return nil, err
+          end
+
+          reports.retrieve_redis_version(red)
+
+          local response, err = red:get(redis_prefix .. key)
+          if err then
+            return nil, err
+          end
+
+          local ok, err = red:set_keepalive(10000, 100)
+          if not ok then
+            kong.log.err("failed to set Redis keepalive: ", err)
+          end
+
+          if response == ngx.null then
+            return nil
+          else
+            return cjson.decode(response)
+          end
+        end,
+        invalidate = function(conf, key)
+          if type(key) ~= "string" then
+              error("key must be a string", 2)
+          end
+
+          local red, err = get_redis_connection(conf)
+          if not red then
+            return nil, err
+          end
+
+          reports.retrieve_redis_version(red)
+
+          local response, err = red:del(redis_prefix .. key)
+          if err then
+            return nil, err
+          end
+
+          local ok, err = red:set_keepalive(10000, 100)
+          if not ok then
+            kong.log.err("failed to set Redis keepalive: ", err)
+          end
+
+          return true
+        end
+      }
+    }
+  schema.lua: |
+    local typedefs = require "kong.db.schema.typedefs"
+
+    return {
+      name = "the-middleman",
+      fields = {
+        { consumer = typedefs.no_consumer },
+        { protocols = typedefs.protocols_http },
+        { config = {
+          type = "record",
+          fields = {
+            { method = { type = "string", default = "POST", one_of = { "POST", "GET", }, }, },
+            { url = typedefs.url({ required = true }) },
+            { path = { type = "string", default = "/auth", }, },
+
+            { connect_timeout = { type = "number", default = 5000, }, },
+            { send_timeout = { type = "number", default = 10000, }, },
+            { read_timeout = {  type = "number", default = 10000, }, },
+
+            { forward_path = { type = "boolean", default = false, }, },
+            { forward_query = { type = "boolean", default = false, }, },
+            { forward_headers = { type = "boolean", default = false, }, },
+            { forward_body = { type = "boolean", default = false, }, },
+
+            { inject_body_response_into_header = { type = "boolean", default = true, }, },
+            { injected_header_prefix = { type = "string", default = 'X-', }, },
+            { streamdown_injected_headers = { type = "boolean", default = false, }, },
+
+            { cache_enabled = { type = "boolean", default = false, }, },
+            { cache_policy = { type = "string", default = "local", one_of = { "local", "redis" }, }, },
+            { cache_based_on = { type = "string", default = "host", one_of = { "host", "host-path", "host-path-query", "header" }, }, },
+            { cache_based_on_headers = { type = "string", default = "authorization", }, },
+            { cache_invalidate_when_streamup_path = { type = "array", elements = { type = "string" } } },
+            { cache_ttl = { type = "number", default = 60, }, },
+
+            { redis_host = typedefs.host },
+            { redis_port = typedefs.port({ default = 6379 }), },
+            { redis_password = { type = "string", len_min = 0, referenceable = true }, },
+            { redis_username = { type = "string", referenceable = true }, },
+            { redis_ssl = { type = "boolean", required = true, default = false, }, },
+            { redis_ssl_verify = { type = "boolean", required = true, default = false }, },
+            { redis_server_name = typedefs.sni },
+            { redis_timeout = { type = "number", default = 2000, }, },
+            { redis_database = { type = "integer", default = 0 }, },
+          },
+        }, },
+      },
+      entity_checks = {
+        { conditional = {
+          if_field = "config.cache_policy", if_match = { eq = "redis" },
+          then_field = "config.redis_host", then_match = { required = true },
+        } },
+        { conditional = {
+          if_field = "config.cache_policy", if_match = { eq = "redis" },
+          then_field = "config.redis_port", then_match = { required = true },
+        } },
+        { conditional = {
+          if_field = "config.cache_policy", if_match = { eq = "redis" },
+          then_field = "config.redis_timeout", then_match = { required = true },
+        } },
+      },
+    }
+kind: Secret
+metadata:
+  name: the-middleman

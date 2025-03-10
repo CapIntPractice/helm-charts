@@ -1,0 +1,8 @@
+apiVersion: v2
+home: https://github.com/dirsigler/uptime-kuma-helm
+icon: https://raw.githubusercontent.com/louislam/uptime-kuma/master/public/icon.png
+name: uptime-kuma
+sources:
+  - https://github.com/louislam/uptime-kuma
+type: application
+version: 2.19.0

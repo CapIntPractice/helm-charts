@@ -1,0 +1,29 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- if and (not .Values.keda.enabled) (le (int .Values.replicaCount) 1) }}
+{{- fail "Enabling PodDisruptionBudget with replicaCount: 1 and no autoscaling prevents pod restarts during upgrades" }}
+{{- end }}
+{{- if and .Values.keda.enabled (le (int .Values.keda.minReplicas) 1) }}
+{{- fail "Enabling PodDisruptionBudget with keda.minReplicas: 1 prevents pod restarts during upgrades" }}
+{{- end }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "kong.fullname" . }}
+  namespace: {{ template "kong.namespace" . }}
+  labels:
+    app.kubernetes.io/component: app
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/name: kong
+spec:
+  {{- if .Values.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  {{- end  }}
+  {{- if .Values.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+  {{- end  }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: app
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/name: kong
+{{- end }}

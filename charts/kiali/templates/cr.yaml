@@ -1,0 +1,61 @@
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  server:
+    web_root: "/"
+  auth:
+    openid:
+      client_id: {{ .Values.client_id }}
+      disable_rbac: true
+      issuer_uri: 'https://discounttire.okta.com'
+      scopes:
+        - openid
+        - email
+        - groups
+      username_claim: email
+    strategy: openid
+  deployment:
+    logger:
+      log_level: info
+    accessible_namespaces:
+      - '**'
+    ingress:
+      enabled: true
+      override_yaml:
+        metadata:
+          annotations:
+            cert-manager.io/cluster-issuer: letsencrypt-prd
+        spec:
+          rules:
+            - host: mesh.{{ .Values.env }}.dtcloudhosting.com
+              http:
+                paths:
+                  - backend:
+                      service:
+                        name: kiali
+                        port:
+                          number: 20001
+                    path: /
+                    pathType: Prefix
+          tls:
+            - hosts:
+                - mesh.{{ .Values.env }}.dtcloudhosting.com
+              secretName: {{ .Release.Name }}-tls
+    tolerations:
+      - effect: NoSchedule
+        key: CriticalAddonsOnly
+        operator: Exists
+  external_services:
+    prometheus:
+      url: http://prometheus-server.monitoring
+    grafana:
+      in_cluster_url: 'http://grafana.monitoring'
+      url: 'https://monitoring.{{ .Values.env }}.dtcloudhosting.com'
+    tracing:
+      enabled: true
+      in_cluster_url: 'http://tempo-query-frontend.monitoring:3100'
+      provider: tempo
+      url: 'https://monitoring.{{ .Values.env }}.dtcloudhosting.com'
+      use_grpc: false

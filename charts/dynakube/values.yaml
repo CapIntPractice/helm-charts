@@ -1,0 +1,7 @@
+oneAgent:
+  applicationMonitoring: {}
+  cloudNativeFullStack: {}
+  classicFullStack: {}
+  hostMonitoring: {}
+cluster_name: ""
+apiUrl: ""

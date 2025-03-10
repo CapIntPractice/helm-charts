@@ -1,0 +1,11 @@
+apiVersion: configuration.konghq.com/v1
+kind: KongClusterPlugin
+metadata:
+  name: whitelist-local
+  annotations:
+    kubernetes.io/ingress.class: kong
+plugin: ip-restriction
+config:
+  allow:
+  - 10.0.0.0/8
+  - 100.64.0.0/16

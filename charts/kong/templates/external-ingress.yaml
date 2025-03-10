@@ -1,0 +1,26 @@
+{{- if .Values.external_ingress.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-kong-proxy-external
+  annotations:
+    {{- toYaml .Values.external_ingress.annotations | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/component: app
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/name: {{ .Release.Namespace }}
+  type: {{ .Values.external_ingress.type }}
+  loadBalancerClass: {{ .Values.external_ingress.loadBalancerClass }}
+  ports:
+    - name: kong-proxy
+      port: 80
+      protocol: TCP
+      targetPort: 8000
+{{- if .Values.external_ingress.tls }}
+    - name: kong-proxy-tls
+      port: 443
+      protocol: TCP
+      targetPort: 8443
+{{- end }}
+{{- end }}

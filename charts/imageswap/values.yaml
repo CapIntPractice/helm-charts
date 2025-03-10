@@ -1,0 +1,4 @@
+maps: |
+  default::
+  docker.io::
+  docker.io/library::nexus-docker-prd.services.tirescorp.com/library

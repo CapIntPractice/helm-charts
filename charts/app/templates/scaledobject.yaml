@@ -1,0 +1,23 @@
+{{- if .Values.keda.enabled }}
+  {{- if .Values.autoscaling.enabled }}
+    {{- fail "Keda and Kubernetes autoscaling cannot be enabled together" }}
+  {{- end }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  scaleTargetRef:
+    name: {{ .Release.Name }}
+    kind: {{ .Values.controller }}
+  minReplicaCount: {{ .Values.keda.minReplicaCount }}
+  maxReplicaCount: {{ .Values.keda.maxReplicaCount }}
+  triggers:
+    {{- range .Values.keda.triggers }}
+    - type: {{ .type }}
+      metadata:
+        {{- range $key, $value := .metadata }}
+        {{ $key }}: "{{ $value }}"
+        {{- end }}
+    {{- end }}
+{{- end }}

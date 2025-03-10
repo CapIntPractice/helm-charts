@@ -1,0 +1,21 @@
+{{- if .Values.https_redirect.enabled }}
+apiVersion: configuration.konghq.com/v1
+kind: KongClusterPlugin
+metadata:
+  name: https-redirect
+  annotations:
+    kubernetes.io/ingress.class: kong
+  labels:
+    global: "true"
+plugin: pre-function
+config:
+  rewrite:
+  - |
+    local host = kong.request.get_host()
+    if kong.request.get_scheme() == "http" and host ~= "localhost" then
+      local query = kong.request.get_path_with_query()
+      local url = "https://" .. host ..query
+      kong.response.set_header("Location",url)
+      kong.response.exit(308,url)
+    end
+{{- end }}

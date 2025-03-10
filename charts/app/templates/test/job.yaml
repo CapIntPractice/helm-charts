@@ -1,0 +1,39 @@
+{{- if .Values.test.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: validation
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        name: validation
+        {{- with .Values.test.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.test.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+      - name: validation
+        image: {{ .Values.test.image }}
+        imagePullPolicy: {{ .Values.test.imagePullPolicy }}
+        {{- with .Values.test.command }}
+        command: 
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.test.args }} 
+        args:
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.test.env }} 
+        env: 
+          {{- toYaml . | nindent 8 }} 
+        {{- end }}
+      restartPolicy: {{ .Values.test.restartPolicy }}
+{{- end }}

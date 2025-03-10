@@ -1,0 +1,45 @@
+kong:
+  ingressController:
+    enabled: false
+  admin:
+    enabled: true
+    type: ClusterIP
+    clusterIP: None
+  deployment:
+    userDefinedVolumes:
+    - name: the-middleman
+      secret:
+        secretName: the-middleman
+        items:
+        - key: access.lua
+          path: access.lua
+        - key: handler.lua
+          path: handler.lua
+        - key: init.lua
+          path: policies/init.lua
+        - key: schema.lua
+          path: schema.lua
+    userDefinedVolumeMounts:
+    - name: the-middleman
+      mountPath: /opt/kong/plugins/the-middleman
+  env:
+    plugins: "bundled,the-middleman"
+
+external_ingress:
+  enabled: false
+  tls: false
+  type: "LoadBalancer"
+  annotations: {}
+  loadBalancerClass: ""
+
+https_redirect:
+  enabled: false
+
+keda:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  triggers: []
+
+podDisruptionBudget:
+  enabled: false
