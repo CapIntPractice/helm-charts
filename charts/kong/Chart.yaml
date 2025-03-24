@@ -1,7 +1,7 @@
 apiVersion: v2
 name: kong
-version: 1.21.1
+version: 1.22.0
 dependencies:
   - name: kong
-    version: 2.46.0
+    version: 2.47.0
     repository: https://charts.konghq.com

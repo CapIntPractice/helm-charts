@@ -80,7 +80,6 @@ stringData:
           ["X-Forwarded-Host"] = kong.request.get_host(),
           ["X-Forwarded-Path"] = kong.request.get_path(),
           ["X-Forwarded-Query"] = kong.request.get_raw_query(),
-          ["X-Forwarded-Path-Query"] = kong.request.get_path_with_query(),
           ["X-Kong-Service"] = get_service_name(kong.router.get_service().name),
         }
       })

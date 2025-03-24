@@ -7,5 +7,5 @@ metadata:
 plugin: ip-restriction
 config:
   allow:
-  - 10.0.0.0/8
+  - 10.0.0.0/16
   - 100.64.0.0/16
