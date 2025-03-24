@@ -48,6 +48,17 @@ entries:
     version: 1.0.0
   kong:
   - apiVersion: v2
+    created: "2025-03-24T19:12:25.794098761Z"
+    dependencies:
+    - name: kong
+      repository: https://charts.konghq.com
+      version: 2.47.0
+    digest: 5bd7bc7755b02c2e7984d4c4f305d8bcb62471fd97c56b7bfe037e9f05c54cbe
+    name: kong
+    urls:
+    - https://github.com/CapIntPractice/helm-charts/releases/download/kong-1.22.0/kong-1.22.0.tgz
+    version: 1.22.0
+  - apiVersion: v2
     created: "2025-03-10T09:31:54.700828604Z"
     dependencies:
     - name: kong
@@ -133,4 +144,4 @@ entries:
     urls:
     - https://github.com/CapIntPractice/helm-charts/releases/download/uptime-kuma-2.19.0/uptime-kuma-2.19.0.tgz
     version: 2.19.0
-generated: "2025-03-10T09:31:55.811931368Z"
+generated: "2025-03-24T19:12:25.794109281Z"
